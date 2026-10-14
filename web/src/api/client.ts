@@ -3,6 +3,7 @@ import { toApiError } from './errors'
 import type { paths as IdentityPaths } from './schema/identity'
 import type { paths as MarketDataPaths } from './schema/marketdata'
 import type { paths as OrderPaths } from './schema/order'
+import type { paths as PortfolioPaths } from './schema/portfolio'
 import type { paths as RiskPaths } from './schema/risk'
 import type { paths as WalletPaths } from './schema/wallet'
 import { tokens } from './tokens'
@@ -84,6 +85,7 @@ export async function authFetch(request: Request, init?: RequestInit): Promise<R
 export const identityApi = createClient<IdentityPaths>({ baseUrl, fetch: authFetch })
 export const marketDataApi = createClient<MarketDataPaths>({ baseUrl, fetch: authFetch })
 export const orderApi = createClient<OrderPaths>({ baseUrl, fetch: authFetch })
+export const portfolioApi = createClient<PortfolioPaths>({ baseUrl, fetch: authFetch })
 export const walletApi = createClient<WalletPaths>({ baseUrl, fetch: authFetch })
 export const riskApi = createClient<RiskPaths>({ baseUrl, fetch: authFetch })
 

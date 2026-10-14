@@ -111,3 +111,32 @@ export const previewJson = {
   },
   estimatedChargesTotal: 1275.03,
 }
+
+export function positionJson(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'p-1',
+    symbol: 'SILVER26DECFUT',
+    underlying: 'SILVER',
+    direction: 'Long',
+    netLots: 1,
+    averagePrice: 130594,
+    lastPrice: 130583,
+    unrealisedPnl: -330,
+    realisedPnl: -60,
+    requiredMargin: 391782,
+    multiplier: 30,
+    updatedAt: '2026-10-14T17:10:59+00:00',
+    ...overrides,
+  }
+}
+
+export const pnlJson = {
+  from: null,
+  to: null,
+  realised: -60,
+  charges: 900.81,
+  netRealised: -960.81,
+  unrealised: 1250.5,
+  total: 289.69,
+  trades: 2,
+}

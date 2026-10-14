@@ -4,6 +4,9 @@ import { RegisterPage } from '@/features/auth/RegisterPage'
 import { PublicOnly, RequireAuth } from '@/features/auth/RouteGuards'
 import { MarketsPage } from '@/features/markets/MarketsPage'
 import { OrdersPage } from '@/features/orders/OrdersPage'
+import { PnlPage } from '@/features/portfolio/PnlPage'
+import { PositionsPage } from '@/features/portfolio/PositionsPage'
+import { TradesPage } from '@/features/portfolio/TradesPage'
 import { AppShell } from './AppShell'
 import { ComingSoonPage } from './ComingSoonPage'
 
@@ -32,7 +35,9 @@ export const routes: RouteObject[] = [
               })),
           },
           { path: '/orders', element: <OrdersPage /> },
-          { path: '/positions', element: <ComingSoonPage title="Positions" /> },
+          { path: '/positions', element: <PositionsPage /> },
+          { path: '/trades', element: <TradesPage /> },
+          { path: '/pnl', element: <PnlPage /> },
           { path: '/wallet', element: <ComingSoonPage title="Wallet" /> },
           { path: '/risk', element: <ComingSoonPage title="Risk" /> },
         ],

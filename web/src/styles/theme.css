@@ -78,6 +78,15 @@
   --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, monospace;
 }
 
+/* Loss bars get a diagonal hatch so profit and loss differ without relying on red vs green. */
+@utility loss-hatch {
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0 3px,
+    color-mix(in oklab, var(--surface) 45%, transparent) 3px 5px
+  );
+}
+
 @layer base {
   body {
     @apply bg-bg font-sans text-text antialiased;
