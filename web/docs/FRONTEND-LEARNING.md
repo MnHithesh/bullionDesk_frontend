@@ -187,3 +187,80 @@ openapi-fetch lets you pass your own `fetch`. `authFetch` is an async function d
 
 3. **Where would you store tokens, and why not just put both in localStorage?**
    The access token lives in memory so it's never sitting in storage. The refresh token sits in localStorage so the session survives a reload, at the cost of being readable by XSS. An httpOnly, SameSite cookie for the refresh token is safer when the backend supports it. Either way, keep access tokens short-lived and rotate refresh tokens.
+
+---
+
+## Step 3 — App shell and market watch
+
+### What was built
+
+| Area                                                          | Files                                                                                                                                           |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Signed-in layout: top bar, side nav, mobile drawer, user menu | `src/app/{AppShell.tsx,UserMenu.tsx,nav.ts,ComingSoonPage.tsx}`, `src/app/routes.tsx`                                                           |
+| Top bar data: available funds, margin status pill             | `src/features/wallet/{api.ts,AvailableFunds.tsx}`, `src/features/risk/{api.ts,MarginStatusPill.tsx}`                                            |
+| Market data hooks and response mapping                        | `src/features/markets/api.ts`, `src/api/convert.ts`, `src/api/client.ts` (new service clients)                                                  |
+| Markets page: expiry tabs, groups by underlying, quote rows   | `src/features/markets/{MarketsPage,ExpiryTabs,QuoteRow,PriceChange,FlashPrice}.tsx`                                                             |
+| Instrument detail: spec, live price, candlestick chart        | `src/features/markets/{InstrumentDetailPage,CandleChart}.tsx`, `candles.ts`                                                                     |
+| Loading, empty and error states                               | `src/components/{Skeleton,QueryStates}.tsx`                                                                                                     |
+| Price flash animation (motion-safe)                           | `src/styles/theme.css`                                                                                                                          |
+| Tests                                                         | `src/features/markets/{QuoteRow,FlashPrice,MarketsPage}.test.tsx`, `candles.test.ts`; default MSW handlers in `src/test/{handlers,fixtures}.ts` |
+
+Routes: `/` now redirects to `/markets`; `/markets/:symbol` is the detail page (lazy-loaded); Orders, Positions, Wallet and Risk are "coming soon" placeholders so the navigation works.
+
+### Concepts, compared with Angular
+
+**TanStack Query polling vs RxJS polling.**
+In Angular you'd write something like `timer(0, 1000).pipe(switchMap(() => http.get(...)), shareReplay(1))`, subscribe with the `async` pipe, and add `takeUntil(destroy$)` or `takeUntilDestroyed()` to stop it. Pausing on a hidden tab means merging in `fromEvent(document, 'visibilitychange')` yourself.
+With TanStack Query it's options on the query:
+
+- `refetchInterval: 1000` is the timer plus `switchMap`. A slow response is never overlapped by the next one.
+- `refetchIntervalInBackground: false` (the default) pauses while the tab is hidden, and `refetchOnWindowFocus` catches up as soon as it's visible again.
+- **Sharing is by key, not by `shareReplay`.** The market table and the detail page both call `useQuery` with `['quotes']`. One poll runs, and both read the same cache. The detail page uses `select` to pick out one symbol, much like a `map()` that only re-renders when its result changes.
+- **Unsubscribing is automatic.** When the last component using `['quotes']` unmounts, polling stops. There's no `takeUntil` to forget.
+- On an error the last good data stays in `data`. The page shows a banner over the old prices instead of blanking the table.
+
+**`useEffect` cleanup vs `ngOnDestroy`.**
+`CandleChart` wraps lightweight-charts, an imperative canvas library, the way you'd wrap a jQuery plugin in a directive.
+
+- `useEffect(() => { const chart = createChart(el); …; return () => chart.remove() }, [])` is `ngAfterViewInit` (the `ref` is like `@ViewChild`) plus `ngOnDestroy`, written side by side for one concern.
+- Each effect has its own cleanup: the chart effect removes the chart and disconnects the `MutationObserver` that recolours it on a theme change. `UserMenu` adds `document` listeners only while open, and the cleanup removes them on close _or_ unmount.
+- Effects with dependencies (`[candles]`, `[price, timestamp, interval]`) work like `ngOnChanges` for those inputs: React runs the previous cleanup (if any), then the effect again.
+- In development, StrictMode mounts, unmounts and remounts every component once, specifically to catch effects without a proper cleanup. A chart created without `chart.remove()` would show up twice.
+- **Not everything needs an effect.** `FlashPrice` compares the new price with the previous one _during render_ (stored in state), and `AppShell` closes the drawer when the path changes the same way. An effect would paint the stale state first, then fix it.
+
+**Keys and list rendering.**
+`*ngFor` with `trackBy` becomes `array.map(item => <Row key={item.symbol} … />)`.
+
+- The `key` tells React which row is which between renders. With `key={symbol}`, a poll that updates prices updates the rows in place. Each `FlashPrice` keeps its "previous price" state, which is what makes the flash work. With index keys, filtering by expiry would hand one contract's state to another.
+- Keys only need to be unique among siblings: `underlying` for each `<tbody>`, `symbol` inside it.
+- **Keys can also force a remount on purpose.** `FlashPrice` puts a counter in the `key` of its `<span>`. Each price change gives it a new key, so React creates a fresh element, and the CSS animation starts again even if the previous one hadn't finished.
+
+**Other bits.**
+
+- **Layout routes:** `AppShell` is a route with no path whose children render in its `<Outlet />`, like a shell component with `<router-outlet>`. It sits inside `RequireAuth`, so the guard runs first.
+- **Lazy routes:** `lazy: () => import(...)` is `loadComponent` in Angular. The chart library ships in a separate 168 kB chunk, loaded only when a detail page opens.
+- **URL state:** the selected expiry is `?expiry=2026-12-05`, read with `useSearchParams` (≈ `ActivatedRoute.queryParamMap`). A reload or a shared link keeps the tab.
+- **Native `<dialog>`** for the mobile drawer: `showModal()` gives focus trapping, Escape and an inert background, which you'd normally get from the CDK's `Overlay`/`FocusTrap`.
+- **Tailwind `motion-safe:`** applies the flash only when the user hasn't asked for reduced motion (`prefers-reduced-motion`).
+
+### Design decisions
+
+- **Map API responses into feature types.** The generated OpenAPI types say decimals are `number | string` and enums are `number`, but the API sends plain numbers and enum _names_ (`"FUT"`, `"Normal"`). `toInstrument`, `toQuote`, `toMargin` and the others convert once in `api.ts`, so components see `number | null` and string unions. _Backend follow-up:_ the services' OpenAPI documents should describe enums as strings (`JsonStringEnumConverter` needs to be registered where the OpenAPI generator sees it, i.e. `ConfigureHttpJsonOptions`). Regenerating would then make the enum part of the mapping unnecessary.
+- **One quotes poll for the whole app** (`GET /api/quotes` without `symbols`) rather than one per page or row. There are six contracts, so one small response a second is cheaper than many.
+- **Live last candle on the client.** History comes from `/api/candles` once per interval. Each quote then updates the last candle (or opens the next one) using `applyQuote`, aligned to IST boundaries like the backend's bars (hourly candles start at :30 UTC). This only shapes what is drawn, and the backend's bars replace it on the next fetch. _Not chosen:_ refetching candles every second, which would be heavier and still lag.
+- **Wallet and margin poll every 5 s** for the top bar. Live push (SignalR) is a phase 3 backend item.
+- **The drawer renders its contents only while open,** so a closed drawer doesn't duplicate the nav links and funds in the DOM (or in tests).
+- **Detail page instead of a side panel.** Opening a row navigates to `/markets/:symbol`. It works the same on a phone, it can be bookmarked, and Back works.
+- **Table on phones:** at 360 px the Change, High and Low columns are hidden (Change % stays), and the cell padding and text shrink so the table fits without scrolling sideways.
+- **Bundle size:** the main chunk is right at Vite's 500 kB warning. Splitting out the auth pages (zod, react-hook-form) is a cheap fix if it grows; it's left for the polish step.
+
+### Interview questions
+
+1. **How do you poll an endpoint every second in React without leaks or overlapping requests?**
+   Use TanStack Query's `refetchInterval`. It waits for a request to finish before scheduling the next one, pauses while the tab is hidden, shares one poll between every component using the same key, and stops when the last one unmounts. A hand-written version needs `setInterval` in a `useEffect` with `clearInterval` in the cleanup, an in-flight guard, an `AbortController`, and a `visibilitychange` listener.
+
+2. **What does the function returned from `useEffect` do, and when does it run?**
+   It's the cleanup. React calls it before running the effect again (when a dependency changes) and when the component unmounts. That's where you remove listeners, disconnect observers, cancel timers, or call `chart.remove()`. In development StrictMode runs mount, cleanup, mount on purpose, to expose effects that don't clean up.
+
+3. **Why shouldn't you use the array index as a `key` in a list that can be filtered or reordered?**
+   React matches elements between renders by key. With index keys, after a filter or sort, row 0's state, DOM and effects get reused for a different item. In our table that would flash the wrong price or keep stale input values. A stable id like the contract symbol keeps each row's state with its own data.
