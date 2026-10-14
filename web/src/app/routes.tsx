@@ -7,8 +7,9 @@ import { OrdersPage } from '@/features/orders/OrdersPage'
 import { PnlPage } from '@/features/portfolio/PnlPage'
 import { PositionsPage } from '@/features/portfolio/PositionsPage'
 import { TradesPage } from '@/features/portfolio/TradesPage'
+import { RiskPage } from '@/features/risk/RiskPage'
+import { WalletPage } from '@/features/wallet/WalletPage'
 import { AppShell } from './AppShell'
-import { ComingSoonPage } from './ComingSoonPage'
 
 export const routes: RouteObject[] = [
   {
@@ -38,8 +39,8 @@ export const routes: RouteObject[] = [
           { path: '/positions', element: <PositionsPage /> },
           { path: '/trades', element: <TradesPage /> },
           { path: '/pnl', element: <PnlPage /> },
-          { path: '/wallet', element: <ComingSoonPage title="Wallet" /> },
-          { path: '/risk', element: <ComingSoonPage title="Risk" /> },
+          { path: '/wallet', element: <WalletPage /> },
+          { path: '/risk', element: <RiskPage /> },
         ],
       },
     ],

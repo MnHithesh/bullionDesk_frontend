@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { MarginBanner } from '@/features/risk/MarginBanner'
 import { MarginStatusPill } from '@/features/risk/MarginStatusPill'
 import { AvailableFunds } from '@/features/wallet/AvailableFunds'
 import { navItems } from './nav'
@@ -52,6 +53,9 @@ export function AppShell() {
           </div>
         </div>
       </header>
+
+      {/* Outside the sticky header so the side nav's sticky offset stays the header height. */}
+      <MarginBanner />
 
       <div className="flex">
         <aside className="sticky top-[53px] hidden h-[calc(100dvh-53px)] w-52 shrink-0 border-r border-border bg-surface md:block">
