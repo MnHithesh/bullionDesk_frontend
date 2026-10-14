@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
+import { toast } from '@/components/toast/toastStore'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { errorMessage } from '@/api/errors'
@@ -37,7 +38,12 @@ export function OrderRow({ order, tickSize }: { order: Order; tickSize: number |
   const cancelling = cancelRequested && !settled
 
   useEffect(() => {
-    if (cancelRequested && settled) void invalidateAfterOrderChange(queryClient)
+    if (!cancelRequested || !settled) return
+    void invalidateAfterOrderChange(queryClient)
+    if (live.status === 'Cancelled') toast.success('Order cancelled', `${live.symbol}`)
+    else toast.info(`Order ${live.status.toLowerCase()} before the cancel arrived`, live.symbol)
+    // Runs once, when the requested cancel settles.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cancelRequested, settled, queryClient])
 
   const canCancel = !settled && !cancelRequested

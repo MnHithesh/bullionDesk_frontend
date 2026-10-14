@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { toast } from '@/components/toast/toastStore'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { Alert } from '@/components/Alert'
@@ -7,6 +8,7 @@ import { TextField } from '@/components/TextField'
 import { formatINR, formatNumber } from '@/lib/format'
 import { applyServerErrors, submitErrorMessage } from '@/lib/forms'
 import { useDebouncedValue } from '@/lib/useDebouncedValue'
+import { useHotkey } from '@/lib/useHotkey'
 import { tickDecimals } from '@/lib/ticks'
 import type { Instrument } from '@/features/markets/api'
 import { useOrderPreview, usePlaceOrder, type OrderInput } from './api'
@@ -55,6 +57,14 @@ export function OrderTicket({
 
   const place = usePlaceOrder()
   const [submitError, setSubmitError] = useState<string | null>(null)
+
+  // b / s pick the side and put the cursor in the lots field, ready to type.
+  function pickSide(side: TicketValues['side']) {
+    setValue('side', side, { shouldValidate: true })
+    document.getElementById('ticket-lots')?.focus()
+  }
+  useHotkey('b', () => pickSide('Buy'), step.kind === 'edit')
+  useHotkey('s', () => pickSide('Sell'), step.kind === 'edit')
 
   if (step.kind === 'placed') {
     return (
@@ -112,6 +122,10 @@ export function OrderTicket({
               setSubmitError(null)
               try {
                 const detail = await place.mutateAsync(input)
+                toast.success(
+                  `${input.side} order placed`,
+                  `${input.lots} ${input.lots === 1 ? 'lot' : 'lots'} ${input.symbol}, waiting for margin and execution.`,
+                )
                 setStep({ kind: 'placed', orderId: detail.order.id })
               } catch (error) {
                 const message = submitErrorMessage(error, setError, fields)
@@ -148,8 +162,16 @@ export function OrderTicket({
               value={field.value}
               onChange={field.onChange}
               options={[
-                { value: 'Buy', className: 'aria-checked:bg-up aria-checked:text-white' },
-                { value: 'Sell', className: 'aria-checked:bg-down aria-checked:text-white' },
+                {
+                  value: 'Buy',
+                  className: 'aria-checked:bg-up aria-checked:text-up-contrast',
+                  shortcut: 'b',
+                },
+                {
+                  value: 'Sell',
+                  className: 'aria-checked:bg-down aria-checked:text-down-contrast',
+                  shortcut: 's',
+                },
               ]}
             />
           )}
@@ -245,6 +267,10 @@ export function OrderTicket({
         <Button type="submit" variant={values.side === 'Sell' ? 'sell' : 'buy'} className="w-full">
           Review {values.side === 'Sell' ? 'sell' : 'buy'} order
         </Button>
+        <p className="text-center text-xs text-muted">
+          Shortcuts: <kbd className="font-mono">B</kbd> buy · <kbd className="font-mono">S</kbd>{' '}
+          sell · <kbd className="font-mono">/</kbd> search
+        </p>
       </form>
     </TicketFrame>
   )
@@ -281,7 +307,7 @@ function Segmented<T extends string>({
   label: string
   value: T
   onChange: (value: T) => void
-  options: { value: T; className?: string }[]
+  options: { value: T; className?: string; shortcut?: string }[]
 }) {
   return (
     <div
@@ -297,6 +323,7 @@ function Segmented<T extends string>({
             type="button"
             role="radio"
             aria-checked={checked}
+            aria-keyshortcuts={option.shortcut}
             tabIndex={checked ? 0 : -1}
             onClick={() => onChange(option.value)}
             onKeyDown={(e) => {

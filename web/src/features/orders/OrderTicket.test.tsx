@@ -195,3 +195,23 @@ describe('order ticket: placing', () => {
     expect(within(timeline).getAllByRole('listitem')).toHaveLength(2)
   })
 })
+
+describe('order ticket: shortcuts', () => {
+  it('b and s pick the side and move to the lots field, but not while typing', async () => {
+    mockPreview()
+    renderTicket()
+    await screen.findByLabelText('Order preview')
+
+    await userEvent.keyboard('s')
+    expect(screen.getByRole('radio', { name: 'Sell' })).toHaveAttribute('aria-checked', 'true')
+    expect(lotsInput()).toHaveFocus()
+
+    // Typing in a field is just typing.
+    await userEvent.keyboard('b')
+    expect(screen.getByRole('radio', { name: 'Sell' })).toHaveAttribute('aria-checked', 'true')
+
+    lotsInput().blur()
+    await userEvent.keyboard('b')
+    expect(screen.getByRole('radio', { name: 'Buy' })).toHaveAttribute('aria-checked', 'true')
+  })
+})

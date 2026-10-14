@@ -1,4 +1,5 @@
 import { useSearchParams } from 'react-router'
+import { PageTitle } from '@/components/PageTitle'
 import { EmptyState, ErrorState } from '@/components/QueryStates'
 import { Skeleton } from '@/components/Skeleton'
 import { Alert } from '@/components/Alert'
@@ -28,6 +29,7 @@ export function MarketsPage() {
 
   return (
     <div className="space-y-4">
+      <PageTitle title="Markets" />
       <h1 className="text-2xl font-semibold tracking-tight">Markets</h1>
 
       {expiryDates.length > 0 && (

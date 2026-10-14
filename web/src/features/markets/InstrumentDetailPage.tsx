@@ -1,8 +1,8 @@
 import { useState } from 'react'
+import { PageTitle } from '@/components/PageTitle'
 import { Link, useParams } from 'react-router'
 import { isApiError } from '@/api/errors'
-import { EmptyState, ErrorState } from '@/components/QueryStates'
-import { Skeleton } from '@/components/Skeleton'
+import { EmptyState, ErrorState, LoadingState } from '@/components/QueryStates'
 import {
   formatDateTimeIST,
   formatINR,
@@ -39,16 +39,13 @@ export function InstrumentDetailPage() {
 
   return (
     <div className="space-y-6">
+      <PageTitle title={symbol} />
       <Link to="/markets" className="text-sm text-muted hover:text-text hover:underline">
         ← Markets
       </Link>
 
       {instrument.isPending ? (
-        <div role="status" className="space-y-3">
-          <span className="sr-only">Loading contract…</span>
-          <Skeleton className="h-8 w-56" />
-          <Skeleton className="h-40 w-full" />
-        </div>
+        <LoadingState label="Loading contract" variant="block" />
       ) : instrument.isError ? (
         isApiError(instrument.error) && instrument.error.status === 404 ? (
           <EmptyState title={`No contract called ${symbol}`}>

@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { tokens } from '@/api/tokens'
@@ -29,7 +29,8 @@ describe('markets page', () => {
         .map((a) => a.textContent),
     ).toEqual(['GOLD26NOVFUT', 'GOLD26DECFUT'])
     const silverRow = screen.getByRole('link', { name: 'SILVER26NOVFUT' }).closest('tr')!
-    expect(silverRow).toHaveTextContent('1,30,410.00')
+    // Quotes arrive from their own request, possibly after the contracts.
+    await waitFor(() => expect(silverRow).toHaveTextContent('1,30,410.00'))
     expect(silverRow).toHaveTextContent('-0.13%')
   })
 

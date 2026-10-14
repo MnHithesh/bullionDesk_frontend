@@ -28,7 +28,7 @@ describe('register page', () => {
     server.use(http.post('/api/auth/register', register))
     renderApp('/register')
 
-    await userEvent.type(screen.getByLabelText('Password'), 'gold')
+    await userEvent.type(await screen.findByLabelText('Password'), 'gold')
     await userEvent.type(screen.getByLabelText('Confirm password'), 'silver')
     await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
 
@@ -56,7 +56,7 @@ describe('register page', () => {
     )
     renderApp('/register')
 
-    await userEvent.type(screen.getByLabelText('Display name'), 'Asha')
+    await userEvent.type(await screen.findByLabelText('Display name'), 'Asha')
     await userEvent.type(screen.getByLabelText('Email'), 'trader@example.com')
     await userEvent.type(screen.getByLabelText('Password'), 'Gold#2026')
     await userEvent.type(screen.getByLabelText('Confirm password'), 'Gold#2026')
@@ -83,7 +83,7 @@ describe('register page', () => {
     )
     renderApp('/register')
 
-    await userEvent.type(screen.getByLabelText('Display name'), 'Asha')
+    await userEvent.type(await screen.findByLabelText('Display name'), 'Asha')
     await userEvent.type(screen.getByLabelText('Email'), 'trader@example.com')
     await userEvent.type(screen.getByLabelText('Password'), 'Gold#2026')
     await userEvent.type(screen.getByLabelText('Confirm password'), 'Gold#2026')
@@ -111,7 +111,7 @@ describe('login page', () => {
     )
     renderApp('/login')
 
-    await userEvent.type(screen.getByLabelText('Email'), 'trader@example.com')
+    await userEvent.type(await screen.findByLabelText('Email'), 'trader@example.com')
     await userEvent.type(screen.getByLabelText('Password'), 'wrong')
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
 
@@ -137,7 +137,7 @@ describe('protected routes', () => {
     localStorage.setItem('bulliondesk.refreshToken', 'refresh-1')
     renderApp('/')
 
-    expect(await screen.findByRole('button', { name: 'Account menu for Asha' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Asha, account menu' })).toBeInTheDocument()
   })
 
   it('logs out back to the login page', async () => {
@@ -146,7 +146,7 @@ describe('protected routes', () => {
     tokens.set({ accessToken: 'access-1', refreshToken: 'refresh-1' })
     const { router } = renderApp('/')
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Account menu for Asha' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Asha, account menu' }))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Log out' }))
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'))

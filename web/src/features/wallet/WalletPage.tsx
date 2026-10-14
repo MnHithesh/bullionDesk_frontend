@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { PageTitle } from '@/components/PageTitle'
+import { toast } from '@/components/toast/toastStore'
 import { Link, useSearchParams } from 'react-router'
 import { errorMessage, isApiError } from '@/api/errors'
 import { Alert } from '@/components/Alert'
@@ -6,8 +8,7 @@ import { Button } from '@/components/Button'
 import { Dialog } from '@/components/Dialog'
 import { DateField, SelectField } from '@/components/FilterFields'
 import { Pagination } from '@/components/Pagination'
-import { EmptyState, ErrorState } from '@/components/QueryStates'
-import { Skeleton } from '@/components/Skeleton'
+import { EmptyState, ErrorState, LoadingState } from '@/components/QueryStates'
 import { direction, formatDateTimeIST, formatINR, formatSignedINR } from '@/lib/format'
 import { istDayStartUtc, istNextDayStartUtc } from '@/lib/istDays'
 import { ledgerEntryTypes, useLedger, useResetWallet, useWallet, type LedgerEntryType } from './api'
@@ -34,6 +35,7 @@ export function WalletPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
+        <PageTitle title="Wallet" />
         <h1 className="text-2xl font-semibold tracking-tight">Wallet</h1>
         <Button variant="secondary" onClick={() => setResetOpen(true)}>
           Reset wallet
@@ -41,12 +43,7 @@ export function WalletPage() {
       </div>
 
       {wallet.isPending ? (
-        <div role="status" className="grid gap-3 sm:grid-cols-3">
-          <span className="sr-only">Loading wallet…</span>
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-20 w-full" />
-          ))}
-        </div>
+        <LoadingState label="Loading wallet" variant="cards" count={3} />
       ) : wallet.isError ? (
         <ErrorState
           title="Could not load the wallet"
@@ -171,12 +168,7 @@ function Ledger() {
       {datesInvalid ? (
         <EmptyState title="Check the dates">The “To” date is before the “From” date.</EmptyState>
       ) : ledger.isPending ? (
-        <div role="status" className="space-y-3 rounded-lg border border-border bg-surface p-4">
-          <span className="sr-only">Loading ledger…</span>
-          {Array.from({ length: 5 }, (_, i) => (
-            <Skeleton key={i} className="h-5 w-full" />
-          ))}
-        </div>
+        <LoadingState label="Loading ledger" count={5} />
       ) : ledger.isError ? (
         <ErrorState
           title="Could not load the ledger"
@@ -297,7 +289,14 @@ function ResetDialog({
           <Button
             variant="sell"
             loading={reset.isPending}
-            onClick={() => reset.mutate(undefined, { onSuccess: () => setDone(true) })}
+            onClick={() =>
+              reset.mutate(undefined, {
+                onSuccess: () => {
+                  setDone(true)
+                  toast.success('Wallet reset', 'Cash is back to the starting balance.')
+                },
+              })
+            }
           >
             Reset wallet
           </Button>

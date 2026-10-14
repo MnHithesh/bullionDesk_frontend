@@ -1,8 +1,8 @@
 import { useState } from 'react'
+import { PageTitle } from '@/components/PageTitle'
 import { Link } from 'react-router'
 import { Pagination } from '@/components/Pagination'
-import { EmptyState, ErrorState } from '@/components/QueryStates'
-import { Skeleton } from '@/components/Skeleton'
+import { EmptyState, ErrorState, LoadingState } from '@/components/QueryStates'
 import { PnlAmount } from '@/features/portfolio/PnlAmount'
 import { formatDateTimeIST, formatINR, formatNumber, formatPercent } from '@/lib/format'
 import { useMargin, useMarginCalls, type Margin, type MarginEventKind } from './api'
@@ -15,13 +15,10 @@ export function RiskPage() {
 
   return (
     <div className="space-y-6">
+      <PageTitle title="Risk" />
       <h1 className="text-2xl font-semibold tracking-tight">Risk</h1>
       {margin.isPending ? (
-        <div role="status" className="space-y-3">
-          <span className="sr-only">Loading margin…</span>
-          <Skeleton className="h-28 w-full" />
-          <Skeleton className="h-40 w-full" />
-        </div>
+        <LoadingState label="Loading margin" variant="block" />
       ) : margin.isError ? (
         <ErrorState
           title="Could not load margin"
@@ -88,7 +85,7 @@ function MarginOverview({ margin }: { margin: Margin }) {
           </p>
         ) : (
           <div className="relative overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[32rem] text-sm">
               <thead className="text-xs text-muted">
                 <tr>
                   <th scope="col" className="px-3 py-2 text-left font-medium">
@@ -153,7 +150,7 @@ function MarginHistory() {
         Margin call history
       </h2>
       {calls.isPending ? (
-        <Skeleton className="h-24 w-full" />
+        <LoadingState label="Loading margin call history" count={3} />
       ) : calls.isError ? (
         <ErrorState
           title="Could not load history"

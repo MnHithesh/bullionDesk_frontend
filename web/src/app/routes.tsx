@@ -1,50 +1,56 @@
+import type { ComponentType } from 'react'
 import { Navigate, type RouteObject } from 'react-router'
-import { LoginPage } from '@/features/auth/LoginPage'
-import { RegisterPage } from '@/features/auth/RegisterPage'
 import { PublicOnly, RequireAuth } from '@/features/auth/RouteGuards'
-import { MarketsPage } from '@/features/markets/MarketsPage'
-import { OrdersPage } from '@/features/orders/OrdersPage'
-import { PnlPage } from '@/features/portfolio/PnlPage'
-import { PositionsPage } from '@/features/portfolio/PositionsPage'
-import { TradesPage } from '@/features/portfolio/TradesPage'
-import { RiskPage } from '@/features/risk/RiskPage'
-import { WalletPage } from '@/features/wallet/WalletPage'
 import { AppShell } from './AppShell'
+import { NotFoundPage } from './NotFoundPage'
+import {
+  InstrumentDetailPage,
+  LoginPage,
+  MarketsPage,
+  OrdersPage,
+  PnlPage,
+  PositionsPage,
+  RegisterPage,
+  RiskPage,
+  TradesPage,
+  WalletPage,
+} from './pages'
+import { RouteError } from './RouteError'
+
+/** A page route with its own error boundary, so one broken page can't take down the others. */
+function page(path: string, Page: ComponentType): RouteObject {
+  return { path, element: <Page />, errorElement: <RouteError /> }
+}
 
 export const routes: RouteObject[] = [
   {
-    element: <PublicOnly />,
-    children: [
-      { path: '/login', element: <LoginPage /> },
-      { path: '/register', element: <RegisterPage /> },
-    ],
-  },
-  {
-    element: <RequireAuth />,
+    // Last-resort boundary for anything outside a page (guards, shell).
+    errorElement: <RouteError />,
     children: [
       {
-        element: <AppShell />,
+        element: <PublicOnly />,
+        children: [page('/login', LoginPage), page('/register', RegisterPage)],
+      },
+      {
+        element: <RequireAuth />,
         children: [
-          { path: '/', element: <Navigate to="/markets" replace /> },
-          { path: '/markets', element: <MarketsPage /> },
           {
-            path: '/markets/:symbol',
-            // Loaded on first visit: the chart library is most of the bundle and only this page uses it.
-            lazy: () =>
-              import('@/features/markets/InstrumentDetailPage').then((m) => ({
-                Component: m.InstrumentDetailPage,
-              })),
+            element: <AppShell />,
+            children: [
+              { path: '/', element: <Navigate to="/markets" replace /> },
+              page('/markets', MarketsPage),
+              page('/markets/:symbol', InstrumentDetailPage),
+              page('/orders', OrdersPage),
+              page('/positions', PositionsPage),
+              page('/trades', TradesPage),
+              page('/pnl', PnlPage),
+              page('/wallet', WalletPage),
+              page('/risk', RiskPage),
+              { path: '*', element: <NotFoundPage /> },
+            ],
           },
-          { path: '/orders', element: <OrdersPage /> },
-          { path: '/positions', element: <PositionsPage /> },
-          { path: '/trades', element: <TradesPage /> },
-          { path: '/pnl', element: <PnlPage /> },
-          { path: '/wallet', element: <WalletPage /> },
-          { path: '/risk', element: <RiskPage /> },
         ],
       },
     ],
   },
-  // A proper 404 page comes with the polish step.
-  { path: '*', element: <Navigate to="/" replace /> },
 ]

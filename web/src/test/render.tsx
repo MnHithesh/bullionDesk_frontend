@@ -1,15 +1,13 @@
-import { QueryClient } from '@tanstack/react-query'
 import { render } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { Providers } from '@/app/Providers'
+import { createQueryClient } from '@/app/queryClient'
 import { routes } from '@/app/routes'
 
 /** Renders the real app routes at `path` with fresh providers (no retries, so failures show at once). */
 export function renderApp(path = '/') {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  })
+  const queryClient = createQueryClient({ retry: false })
   const router = createMemoryRouter(routes, { initialEntries: [path] })
   const result = render(
     <Providers queryClient={queryClient}>
@@ -21,9 +19,7 @@ export function renderApp(path = '/') {
 
 /** Renders one component (not the whole app) with fresh providers and a router around it. */
 export function renderWithProviders(ui: ReactNode, { path = '/' } = {}) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  })
+  const queryClient = createQueryClient({ retry: false })
   const router = createMemoryRouter([{ path: '*', element: ui }], { initialEntries: [path] })
   const result = render(
     <Providers queryClient={queryClient}>

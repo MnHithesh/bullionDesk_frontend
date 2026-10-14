@@ -6,8 +6,8 @@ type Variant = 'primary' | 'secondary' | 'buy' | 'sell'
 const variants: Record<Variant, string> = {
   primary: 'bg-accent text-accent-contrast hover:brightness-110',
   secondary: 'border border-border bg-surface text-text hover:bg-bg',
-  buy: 'bg-up text-white hover:brightness-110',
-  sell: 'bg-down text-white hover:brightness-110',
+  buy: 'bg-up text-up-contrast hover:brightness-110',
+  sell: 'bg-down text-down-contrast hover:brightness-110',
 }
 
 type ButtonProps = ComponentProps<'button'> & { variant?: Variant; loading?: boolean }

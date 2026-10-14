@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react'
+import { PageTitle } from '@/components/PageTitle'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
 export function AuthLayout({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col">
+      <PageTitle title={title} />
       <header className="flex items-center justify-between px-4 py-3">
         <span className="text-lg font-semibold tracking-tight">
           Bullion<span className="text-accent">Desk</span>

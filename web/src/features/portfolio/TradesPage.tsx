@@ -1,10 +1,10 @@
 import { useState } from 'react'
+import { PageTitle } from '@/components/PageTitle'
 import { useSearchParams } from 'react-router'
 import { Button } from '@/components/Button'
 import { DateField, SelectField } from '@/components/FilterFields'
 import { Pagination } from '@/components/Pagination'
-import { EmptyState, ErrorState } from '@/components/QueryStates'
-import { Skeleton } from '@/components/Skeleton'
+import { EmptyState, ErrorState, LoadingState } from '@/components/QueryStates'
 import { useInstruments } from '@/features/markets/api'
 import { formatDateTimeIST, formatINR, formatNumber } from '@/lib/format'
 import { istDayStartUtc, istNextDayStartUtc } from '@/lib/istDays'
@@ -51,6 +51,7 @@ export function TradesPage() {
 
   return (
     <div className="space-y-4">
+      <PageTitle title="Trades" />
       <h1 className="text-2xl font-semibold tracking-tight">Trades</h1>
 
       <form
@@ -81,12 +82,7 @@ export function TradesPage() {
       {datesInvalid ? (
         <EmptyState title="Check the dates">The “To” date is before the “From” date.</EmptyState>
       ) : trades.isPending ? (
-        <div role="status" className="space-y-3 rounded-lg border border-border bg-surface p-4">
-          <span className="sr-only">Loading trades…</span>
-          {Array.from({ length: 5 }, (_, i) => (
-            <Skeleton key={i} className="h-5 w-full" />
-          ))}
-        </div>
+        <LoadingState label="Loading trades" count={5} />
       ) : trades.isError ? (
         <ErrorState
           title="Could not load trades"
@@ -104,7 +100,7 @@ export function TradesPage() {
           <div
             className={`relative overflow-x-auto rounded-lg border border-border bg-surface transition-opacity ${trades.isPlaceholderData ? 'opacity-60' : ''}`}
           >
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[42rem] text-sm">
               <thead className="text-xs text-muted">
                 <tr>
                   <th scope="col" className="px-3 py-2 text-left font-medium">

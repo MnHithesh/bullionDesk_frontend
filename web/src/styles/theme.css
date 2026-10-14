@@ -13,17 +13,20 @@
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
 :root {
+  /* Text tokens (accent, up, down, warning) keep at least 4.5:1 on the surface and on their own 10–20% tints. */
   color-scheme: light;
   --bg: #f6f7f9;
   --surface: #ffffff;
   --text: #14171c;
   --muted: #5b6472;
   --border: #dde1e7;
-  --accent: #a67c00;
+  --accent: #876400;
   --accent-contrast: #ffffff;
-  --up: #0f7b3e;
-  --down: #c62828;
-  --warning: #9a5b00;
+  --up: #0b6e36;
+  --down: #b42020;
+  --warning: #844d00;
+  --up-contrast: #ffffff;
+  --down-contrast: #ffffff;
 }
 
 :root[data-theme='dark'] {
@@ -38,6 +41,9 @@
   --up: #3fb871;
   --down: #f2665f;
   --warning: #f0a83a;
+  /* The dark theme's green and red are light, so text on them is dark. */
+  --up-contrast: #0d1014;
+  --down-contrast: #0d1014;
 }
 
 @theme inline {
@@ -51,6 +57,8 @@
   --color-up: var(--up);
   --color-down: var(--down);
   --color-warning: var(--warning);
+  --color-up-contrast: var(--up-contrast);
+  --color-down-contrast: var(--down-contrast);
 
   /* Price cell flash: a short tint that fades out. Used as motion-safe:animate-flash-up/down. */
   --animate-flash-up: flash-up 700ms ease-out;

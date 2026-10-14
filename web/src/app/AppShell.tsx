@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
+import { LoadingState } from '@/components/QueryStates'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { InstrumentSearch } from '@/features/markets/InstrumentSearch'
 import { MarginBanner } from '@/features/risk/MarginBanner'
 import { MarginStatusPill } from '@/features/risk/MarginStatusPill'
 import { AvailableFunds } from '@/features/wallet/AvailableFunds'
@@ -8,7 +10,7 @@ import { navItems } from './nav'
 import { UserMenu } from './UserMenu'
 
 /**
- * Signed-in layout: top bar, side navigation (a drawer below the md breakpoint) and the page in
+ * Signed-in layout: top bar, side navigation (a drawer below the lg breakpoint) and the page in
  * <Outlet />. Like an Angular shell component with <router-outlet>, used as a layout route.
  */
 export function AppShell() {
@@ -38,13 +40,14 @@ export function AppShell() {
             type="button"
             onClick={() => setDrawerOpen(true)}
             aria-label="Open navigation"
-            className="inline-flex size-9 items-center justify-center rounded-md text-muted hover:text-text md:hidden"
+            className="inline-flex size-9 items-center justify-center rounded-md text-muted hover:text-text lg:hidden"
           >
             <MenuIcon />
           </button>
           <span className="text-lg font-semibold tracking-tight">
             Bullion<span className="text-accent">Desk</span>
           </span>
+          <InstrumentSearch className="ml-4 hidden w-56 md:block lg:w-64" />
           <div className="ml-auto flex items-center gap-2 sm:gap-4">
             <AvailableFunds className="hidden text-right sm:block" />
             <MarginStatusPill />
@@ -58,11 +61,14 @@ export function AppShell() {
       <MarginBanner />
 
       <div className="flex">
-        <aside className="sticky top-[53px] hidden h-[calc(100dvh-53px)] w-52 shrink-0 border-r border-border bg-surface md:block">
+        <aside className="sticky top-[53px] hidden h-[calc(100dvh-53px)] w-52 shrink-0 border-r border-border bg-surface lg:block">
           <SideNav />
         </aside>
         <main id="main" className="min-w-0 flex-1 px-4 py-6 lg:px-8">
-          <Outlet />
+          {/* Lazy pages suspend here while their chunk loads; the shell stays on screen. */}
+          <Suspense fallback={<LoadingState label="Loading page" variant="block" />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
 
@@ -114,7 +120,7 @@ function Drawer({ open, onClose }: { open: boolean; onClose: () => void }) {
       aria-label="Navigation"
       onClose={onClose}
       onClick={(e) => e.target === ref.current && onClose()}
-      className="m-0 h-dvh max-h-none w-72 max-w-[85vw] border-r border-border bg-surface p-0 text-text backdrop:bg-black/40 md:hidden"
+      className="m-0 h-dvh max-h-none w-72 max-w-[85vw] border-r border-border bg-surface p-0 text-text backdrop:bg-black/40 lg:hidden"
     >
       {/* Content only while open: a closed drawer keeps nothing (duplicate links, polls) in the page. */}
       {open && (

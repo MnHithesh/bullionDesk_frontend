@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router'
 import { Alert } from '@/components/Alert'
 import { Button } from '@/components/Button'
@@ -37,5 +38,9 @@ export function PublicOnly() {
     const from = (location.state as FromState)?.from
     return <Navigate to={from ? `${from.pathname}${from.search ?? ''}` : '/'} replace />
   }
-  return <Outlet />
+  return (
+    <Suspense fallback={<FullPageSpinner label="Loading" />}>
+      <Outlet />
+    </Suspense>
+  )
 }

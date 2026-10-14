@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { EmptyState, ErrorState } from '@/components/QueryStates'
-import { Skeleton } from '@/components/Skeleton'
+import { PageTitle } from '@/components/PageTitle'
+import { EmptyState, ErrorState, LoadingState } from '@/components/QueryStates'
 import { formatINR } from '@/lib/format'
 import { addDays, istToday } from '@/lib/istDays'
 import { useDailyPnl, usePnl, type PnlSummary } from './api'
@@ -19,15 +19,11 @@ export function PnlPage() {
 
   return (
     <div className="space-y-6">
+      <PageTitle title="Profit & loss" />
       <h1 className="text-2xl font-semibold tracking-tight">Profit &amp; loss</h1>
 
       {summary.isPending ? (
-        <div role="status" className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          <span className="sr-only">Loading P&amp;L…</span>
-          {Array.from({ length: 5 }, (_, i) => (
-            <Skeleton key={i} className="h-20 w-full" />
-          ))}
-        </div>
+        <LoadingState label="Loading P&L" variant="cards" />
       ) : summary.isError ? (
         <ErrorState
           title="Could not load P&L"
@@ -46,10 +42,7 @@ export function PnlPage() {
           Daily net P&amp;L, last {DAYS} days (IST)
         </h2>
         {daily.isPending ? (
-          <div role="status">
-            <span className="sr-only">Loading daily P&amp;L…</span>
-            <Skeleton className="h-56 w-full" />
-          </div>
+          <LoadingState label="Loading daily P&L" variant="block" />
         ) : daily.isError ? (
           <ErrorState
             title="Could not load daily P&L"

@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { PageTitle } from '@/components/PageTitle'
+import { toast } from '@/components/toast/toastStore'
 import { useSearchParams } from 'react-router'
 import { errorMessage } from '@/api/errors'
 import { Alert } from '@/components/Alert'
 import { Button } from '@/components/Button'
 import { Dialog } from '@/components/Dialog'
-import { EmptyState, ErrorState } from '@/components/QueryStates'
+import { EmptyState, ErrorState, LoadingState } from '@/components/QueryStates'
 import { Skeleton } from '@/components/Skeleton'
 import { formatINR, formatNumber } from '@/lib/format'
 import { usePnl, usePositions, useSquareOff, type Position } from './api'
@@ -33,7 +35,11 @@ export function PositionsPage() {
     if (!target) return
     const symbol = target.kind === 'one' ? target.position.symbol : null
     try {
-      await squareOff.mutateAsync(symbol)
+      const orders = await squareOff.mutateAsync(symbol)
+      toast.success(
+        symbol ? `Closing ${symbol}` : 'Closing all positions',
+        `${orders.length} market ${orders.length === 1 ? 'order' : 'orders'} placed.`,
+      )
       setCloseRequested((prev) => [...prev, ...(symbol ? [symbol] : list.map((p) => p.symbol))])
       setTarget(null)
     } catch {
@@ -50,6 +56,7 @@ export function PositionsPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
+          <PageTitle title="Positions" />
           <h1 className="text-2xl font-semibold tracking-tight">Positions</h1>
           <p className="mt-1 text-sm text-muted">
             Total unrealised{' '}
@@ -68,12 +75,7 @@ export function PositionsPage() {
       </div>
 
       {positions.isPending ? (
-        <div role="status" className="space-y-3 rounded-lg border border-border bg-surface p-4">
-          <span className="sr-only">Loading positions…</span>
-          {Array.from({ length: 3 }, (_, i) => (
-            <Skeleton key={i} className="h-5 w-full" />
-          ))}
-        </div>
+        <LoadingState label="Loading positions" count={3} />
       ) : positions.isError ? (
         <ErrorState
           title="Could not load positions"
@@ -84,7 +86,7 @@ export function PositionsPage() {
         <EmptyState title="No open positions">Filled orders show up here.</EmptyState>
       ) : (
         <div className="relative overflow-x-auto rounded-lg border border-border bg-surface">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[42rem] text-sm">
             <thead className="text-xs text-muted">
               <tr>
                 <th scope="col" className="px-3 py-2 text-left font-medium">

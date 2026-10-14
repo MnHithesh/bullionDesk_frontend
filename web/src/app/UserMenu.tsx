@@ -39,7 +39,6 @@ export function UserMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        aria-label={`Account menu for ${name}`}
         onClick={() => setOpen((o) => !o)}
         className="inline-flex items-center gap-2 rounded-md py-1 pr-2 pl-1 hover:bg-bg"
       >
@@ -49,7 +48,9 @@ export function UserMenu() {
         >
           {name.charAt(0).toUpperCase()}
         </span>
-        <span className="hidden max-w-32 truncate text-sm lg:inline">{name}</span>
+        {/* The name is the button's label: visible on wide screens, screen-reader-only otherwise. */}
+        <span className="sr-only max-w-32 truncate text-sm lg:not-sr-only">{name}</span>
+        <span className="sr-only">, account menu</span>
       </button>
 
       {open && (

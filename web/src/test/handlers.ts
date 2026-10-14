@@ -35,4 +35,7 @@ export const defaultHandlers = [
   http.get('/api/instruments', () => HttpResponse.json(instruments)),
   http.get('/api/expiries', () => HttpResponse.json(expiries)),
   http.get('/api/quotes', () => HttpResponse.json(quotes)),
+  http.get('/api/orders', () =>
+    HttpResponse.json({ items: [], page: 1, pageSize: 20, totalCount: 0, totalPages: 0 }),
+  ),
 ]

@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { toast } from '@/components/toast/toastStore'
 import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { isApiError } from '@/api/errors'
@@ -62,6 +63,10 @@ function ModifyForm({
     }
     try {
       await modify.mutateAsync({ id: order.id, lots: changedLots, limitPrice: changedPrice })
+      toast.success(
+        'Modification sent',
+        `${order.symbol}: the order book updates once it is applied.`,
+      )
       onDone()
     } catch (error) {
       if (isApiError(error) && error.status === 422) {
