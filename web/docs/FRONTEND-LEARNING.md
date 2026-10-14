@@ -455,3 +455,69 @@ Green, amber and red are a common colour-blindness confusion set, and colour mea
 
 3. **How do you make a red/amber/green status accessible?**
    Never rely on colour alone. Add a text label and an icon, use signs on numbers, and use patterns or position in charts. Expose the value to assistive tech (`role="meter"` with `aria-valuetext`, `role="alert"` for urgent banners, `aria-live` for changing statuses). Check text contrast in both themes, and test with a colour-blindness simulator.
+
+---
+
+## Step 7 — Polish
+
+### What was built
+
+| Area                                                                                      | Files                                                                                                                                                     |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Toasts: confirmations, plus server/network errors with the ProblemDetails `correlationId` | `src/components/toast/{toastStore.ts,Toaster.tsx}`, global handlers in `src/app/queryClient.ts`, success toasts in the order, position and wallet actions |
+| One loading/empty/error set                                                               | `src/components/QueryStates.tsx` (`LoadingState`, `EmptyState`, `ErrorState` with a reference on 5xx), used on every page                                 |
+| Keyboard: `/` search, `b`/`s` on the instrument page                                      | `src/lib/useHotkey.ts`, `src/features/markets/InstrumentSearch.tsx` (combobox in the top bar), `OrderTicket.tsx`                                          |
+| Route-level code splitting                                                                | `src/app/pages.ts` (`React.lazy` per page), `<Suspense>` in `AppShell` and `PublicOnly`                                                                   |
+| Error boundaries per route, 404                                                           | `src/app/{RouteError,NotFoundPage}.tsx`, `src/app/routes.tsx` (`errorElement` on every page)                                                              |
+| Document titles                                                                           | `src/components/PageTitle.tsx` (React 19 `<title>`) on every page                                                                                         |
+| Accessibility fixes from Lighthouse                                                       | `src/styles/theme.css` (contrast tokens), `Button.tsx`, `UserMenu.tsx`                                                                                    |
+| Session fix found by the sweep                                                            | `src/api/client.ts`: a 429/5xx from `/api/auth/refresh` no longer logs the user out                                                                       |
+| Tests                                                                                     | `src/app/Polish.test.tsx` (toasts, 404, titles, error boundary, `/`), shortcut test in `OrderTicket.test.tsx`, refresh 429/503 in `client.test.ts`        |
+
+**Checks run against the live backend:** every page at 360, 768 and 1280 px in light and dark (no horizontal page scroll, no runtime errors). Lighthouse accessibility scores **100 on all 11 pages in both themes**; it started at 96–97.
+
+### Concepts, compared with Angular
+
+**`React.lazy` + `Suspense` vs Angular lazy-loaded routes.**
+Angular: `{ path: 'orders', loadComponent: () => import('./orders.component').then(m => m.OrdersComponent) }`. The router downloads the chunk _before_ activating the route, and the old page stays until it arrives.
+React:
+
+- `const OrdersPage = lazy(() => import('@/features/orders/OrdersPage').then(m => ({ default: m.OrdersPage })))` creates a component whose code downloads on first render. `lazy` wants a default export, hence the `.then`.
+- On the first render it **suspends** (it throws a promise, internally). React walks up to the nearest `<Suspense fallback={…}>` and shows the fallback until the chunk loads. Our `Suspense` sits around the `<Outlet />` _inside_ the shell, so the top bar and nav stay and only the page area shows a placeholder.
+- Where you put `Suspense` decides how much UI is replaced while loading. A boundary at the root would blank the whole app on every navigation.
+- Result: the main bundle went from ~500 kB to ~360 kB. Each page is its own 5–9 kB chunk, and the chart library (180 kB) loads only on the instrument page.
+- React Router's own `lazy` route property (used in step 3) is closer to Angular's model, since it loads before rendering. `React.lazy` is the general React mechanism and works for any component, not only routes.
+
+**Error boundaries vs `ErrorHandler`.**
+Angular has one global `ErrorHandler` (override `handleError`) that sees every uncaught error. It's for logging; it doesn't change what's on screen.
+React's error boundaries are **UI**. A boundary catches errors thrown while rendering its subtree and renders a fallback instead of the broken part.
+
+- Without one, a render error unmounts the _whole_ app (white screen).
+- With React Router, a route's `errorElement` is an error boundary. Each page route has one (`page()` in `routes.tsx`), so a crash in Positions shows "This page hit a problem" _inside_ the shell. The nav still works, and the other pages are unaffected. A last-resort boundary at the root catches errors in the guards and the shell.
+- `useRouteError()` gives the error, and `isRouteErrorResponse` recognises router 404s. A failed chunk download after a new deployment gets its own message ("A new version is available, reload").
+- Boundaries **don't** catch errors in event handlers, effects that run later, or async code (fetches). Those are handled where they happen: TanStack Query turns failed requests into `isError` states (inline `ErrorState`), and the QueryClient's global `onError` handlers raise toasts for server faults. The global handlers are the closest thing to Angular's `ErrorHandler`.
+- Hand-written boundaries are still class components (`componentDidCatch` / `getDerivedStateFromError`). With a data router, `errorElement` covers the per-page case without writing one.
+
+**Toasts outside React.** The QueryClient's `onError` runs outside any component, so it can't call a hook. The toast store is therefore a plain module with `subscribe`/`getSnapshot`, which components read with `useSyncExternalStore`, the same pattern as the token store. In Angular it would be an injectable service with a signal or Subject.
+
+**Document titles.** Angular has the `Title` service or a route `title`. React 19 lets any component render `<title>`; React hoists it into `<head>` and restores the previous title when that component unmounts.
+
+### Design decisions
+
+- **What gets a toast:** server faults (5xx, network) from mutations, and from queries that _already had data_ (a failing refresh would otherwise go unnoticed behind stale numbers). The toast id is the query's hash, so a poll failing every second updates one toast instead of stacking. 4xx answers stay next to the form or row that caused them, never duplicated as toasts. Successful actions get a short confirmation.
+- **The correlation id** appears on 5xx toasts and in `ErrorState`, with a Copy button, so it can be pasted into the backend log search.
+- **Shortcuts** ignore key presses while typing in a field and when Ctrl, Alt or Meta is held, and they're advertised in the UI and through `aria-keyshortcuts`. `/` focuses a new top-bar contract search, an ARIA combobox (arrow keys, Enter, Escape).
+- **The side nav moved to the `lg` breakpoint.** At 768 px it squeezed the order book, so tablets now get the drawer. Wide tables have a minimum width and scroll inside their card instead of squashing columns.
+- **Contrast:** light-theme accent, up, down and warning were darkened so text keeps ≥ 4.5:1 on the surface _and_ on their own tints. New `--up-contrast` / `--down-contrast` tokens put dark text on the dark theme's light green and red buttons.
+- **Refresh rate limiting (bug found by the sweep):** the gateway allows 10 auth calls per minute per IP. The client used to treat _any_ failed refresh as "session over", so a few quick reloads logged the user out. Now only 400, 401 and 403 end the session; 429 and 5xx fail that request and keep the token.
+
+### Interview questions
+
+1. **How does `React.lazy` work, and where should `Suspense` go?**
+   `lazy` wraps a dynamic `import()`. The first render throws a promise ("suspends") until the module arrives, and the nearest `Suspense` above it shows its fallback meanwhile. Place `Suspense` as close to the lazy content as makes sense (here, around the page outlet inside the layout), so persistent UI like navigation stays visible.
+
+2. **What do error boundaries catch, and what don't they?**
+   They catch errors thrown during rendering, in lifecycle methods and in constructors of their subtree, and render a fallback. They don't catch errors in event handlers, async code (promises, timers, fetches), or the boundary itself. Those are handled locally (try/catch, query error states) or by global handlers.
+
+3. **A toast fires every second because a polled request fails. How do you fix it?**
+   Give the toast a stable id derived from the request (here the query hash) and replace instead of append. Only toast failures the user would otherwise miss (a background refresh with data already on screen), and leave first-load failures to the inline error state.
