@@ -1,4 +1,6 @@
+import { Button } from '@/components/Button'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { useAuth } from '@/features/auth/AuthContext'
 import {
   direction,
   formatDateTimeIST,
@@ -17,6 +19,8 @@ const sampleQuotes = [
 ]
 
 export function HomePage() {
+  const { user, logout } = useAuth()
+
   return (
     <div className="min-h-dvh">
       <header className="border-b border-border bg-surface">
@@ -24,7 +28,15 @@ export function HomePage() {
           <span className="text-lg font-semibold tracking-tight">
             Bullion<span className="text-accent">Desk</span>
           </span>
-          <ThemeToggle />
+          <div className="flex items-center gap-3">
+            <span className="hidden text-sm text-muted sm:inline" title={user?.email}>
+              {user?.displayName}
+            </span>
+            <ThemeToggle />
+            <Button variant="secondary" onClick={() => void logout()}>
+              Log out
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -34,7 +46,7 @@ export function HomePage() {
             Paper trading for gold and silver
           </h1>
           <p className="mt-1 text-muted">
-            Simulated market, virtual money. Sign-in and live quotes arrive in the next steps.
+            Simulated market, virtual money. Live quotes and trading arrive in the next steps.
           </p>
         </section>
 
