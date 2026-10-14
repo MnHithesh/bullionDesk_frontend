@@ -264,3 +264,77 @@ With TanStack Query it's options on the query:
 
 3. **Why shouldn't you use the array index as a `key` in a list that can be filtered or reordered?**
    React matches elements between renders by key. With index keys, after a filter or sort, row 0's state, DOM and effects get reused for a different item. In our table that would flash the wrong price or keep stale input values. A stable id like the contract symbol keeps each row's state with its own data.
+
+---
+
+## Step 4 — Order ticket and order book
+
+### What was built
+
+| Area                                                                                                              | Files                                                                                                                                                                  |
+| ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Order API: types, response mapping, query keys, hooks (preview, place, poll, list, modify, cancel)                | `src/features/orders/api.ts`, `src/api/client.ts` (`orderApi`)                                                                                                         |
+| Order ticket on the instrument page: side, lots stepper, Market/Limit, limit price; preview; confirm; live status | `src/features/orders/{OrderTicket,OrderPreviewPanel,OrderTracker,OrderTimeline,OrderStatusBadge}.tsx`, `ticketSchema.ts`                                               |
+| Order book with filters, pagination, modify and cancel                                                            | `src/features/orders/{OrdersPage,OrderRow,ModifyOrderDialog}.tsx`, `modifySchema.ts`                                                                                   |
+| Shared pieces                                                                                                     | `src/components/Dialog.tsx`, `Button.tsx` (buy/sell variants), `src/lib/{useDebouncedValue,ticks,istDays}.ts`                                                          |
+| Tests                                                                                                             | `src/features/orders/{OrderTicket,OrdersPage}.test.tsx`, `ticketSchema.test.ts`, `src/lib/{ticks,istDays}.test.ts`; helpers `src/test/{session,fixtures,render}.ts(x)` |
+
+### Concepts, compared with Angular
+
+**Controlled forms vs reactive forms.**
+In Angular, Reactive Forms keep the value in a `FormControl` and the template binds to it; `valueChanges` is an Observable you pipe.
+React offers two styles:
+
+- **Controlled:** React state is the source of truth and the input shows it: `value={x} onChange={e => setX(e.target.value)}`. Every keystroke re-renders. Our `Segmented` (Buy/Sell, Market/Limit) is a controlled component: it shows `value` and calls `onChange`, nothing more. It plugs into react-hook-form through `<Controller>`, the bridge for custom inputs (like implementing `ControlValueAccessor`).
+- **Uncontrolled (react-hook-form's default):** the DOM holds the value and `register()` reads it through a ref. Typing doesn't re-render the form. The lots and price inputs work this way. `setValueAs` turns the input's text into a number (`''` → `NaN` for lots, `null` for price) before zod validates it.
+- `useWatch({ control })` is the equivalent of `form.valueChanges`. It re-renders the ticket when a value changes, which is what drives the preview.
+- **The zod schema is built per contract** (`orderTicketSchema(tickSize)`), because the tick check depends on the spec. It's like a validator factory `tickValidator(tick)`, and `useMemo` keeps the same schema instance until the tick size changes.
+
+**Debouncing.**
+RxJS: `valueChanges.pipe(debounceTime(300), distinctUntilChanged(), switchMap(v => preview(v)))`.
+Here, three pieces do the same job:
+
+1. `useDebouncedValue(value, 300)` (`debounceTime`): every change restarts a `setTimeout`, and the effect's cleanup `clearTimeout`s the previous one.
+2. The debounced value is a **JSON string** of the valid input. Strings compare by value, so an unchanged ticket doesn't restart the timer (`distinctUntilChanged`). An object would be "new" on every render.
+3. TanStack Query does the `switchMap` part: the query key contains the input, so a new input means a new query, and an outdated response can never overwrite a newer one. Identical inputs are cached, so going back to 1 lot is instant.
+
+`placeholderData: keepPreviousData` keeps the previous preview visible (dimmed) while the next one loads, so the panel doesn't flicker on every keystroke.
+
+**Optimistic vs server-confirmed updates.**
+
+- _Optimistic:_ update the UI immediately (`onMutate` → `setQueryData`) and roll back if the server says no. It's great for a "like" button.
+- _Server-confirmed_ (what we do for orders): the UI only shows what the backend reported. Placing an order shows **Pending**, the real first status. Cancelling shows **"Cancelling…"**, which is a request in progress, not a pretend "Cancelled": `DELETE` returns `202 Accepted`, and the order may still fill before the cancel lands. The row then polls `GET /api/orders/{id}` until a final status arrives, and only then shows the outcome.
+- We do use `setQueryData` with the server's _response_ (the 201/202 body) to seed the detail cache, so the tracker renders at once without an extra request. That's a cache shortcut, not a guess.
+- For money, a wrong optimistic state ("Filled!" then "Rejected") is worse than a short wait.
+
+**Query invalidation.**
+Angular has no built-in cache. You usually re-call the service or push into a `BehaviorSubject` after a change.
+TanStack Query marks cached data stale and refetches whatever is on screen:
+
+- `invalidateQueries({ queryKey: ['orders'] })` matches every key _starting with_ `['orders']` (lists with any filters, details, previews), so query keys are designed as a hierarchy (`orderKeys`).
+- `invalidateAfterOrderChange` also invalidates `['wallet']` and `['margin']`. A fill or cancel changes blocked margin, and the top bar then updates on its own.
+- It's triggered by **results, not requests**: after a modify succeeds, and when a tracked order reaches a final status (an effect watching `final`). Invalidating right after `POST /api/orders` would mostly refetch the same Pending state.
+
+**Polling until done.** `refetchInterval` can be a function of the query: `status is final ? false : 1000`. Polling stops by itself when the order settles, the equivalent of `takeWhile(o => !isFinal(o.status), true)`. The order list polls every 3 s only while a row on the page is still live.
+
+### Design decisions
+
+- **Preview only for a valid ticket.** An invalid form shows "Fix the highlighted fields" and sends nothing. Server-side field errors (such as the maximum lots, a backend rule we don't copy) are mapped onto the same fields from the preview's 400 response.
+- **Confirm step inside the ticket**, not a modal: it shows the exact request plus margin and charges. Nothing is sent until "Place buy/sell order", and the button is disabled while the request is in flight, so a double click can't place twice.
+- **Insufficient funds**: the backend rejects asynchronously (`Rejected`, reason "Margin not available: Insufficient funds"). The ticket turns that into a sentence with both numbers (required margin from the order, available funds from the wallet). The order book shows the needed margin under the badge.
+- **Modify sends only what changed** (`null` = keep). The dialog explains up front that a change must fit inside the margin already blocked. A 422 shows the backend's numbers plus the way out: cancel and place a new order.
+- **Dates are IST days.** The filter turns `2026-10-14` into `[2026-10-13T18:30Z, 2026-10-14T18:30Z)`, so "To = today" includes today's orders.
+- **Filters and page in the URL**, and changing a filter resets to page 1. `keepPreviousData` dims the table instead of flashing a skeleton between pages.
+- **Native `<dialog>`** for confirm and modify. jsdom doesn't implement `showModal()` yet, so `src/test/setup.ts` adds a two-line stand-in.
+- **Accessible row actions:** buttons read "Cancel" visually but are announced as "Cancel order SILVER26DECFUT" (`aria-label`), so a screen-reader user knows which row they're acting on.
+
+### Interview questions
+
+1. **How would you call a preview API as the user types, without flooding the server or showing stale results?**
+   Validate first, and debounce the _valid_ input (300 ms). Make the request input part of the query key, so each distinct input is its own cached query and an older response can't replace a newer one. Keep the previous result visible while the next one loads. In RxJS: `debounceTime` + `distinctUntilChanged` + `switchMap`.
+
+2. **When would you use an optimistic update, and why not for cancelling an order?**
+   When the action almost always succeeds and a rollback is harmless (likes, renames, reordering). An order cancel is accepted asynchronously (202) and can lose a race with a fill. Showing "Cancelled" and then "Filled" would be misleading about money, so we show a pending state and poll for the confirmed result.
+
+3. **What does `invalidateQueries` do, and how do you decide what to invalidate?**
+   It marks matching cached queries stale and refetches those currently in use. The key acts as a prefix, so `['orders']` covers every order list and detail. Invalidate whatever the server-side change affects. A cancelled order frees margin, so wallet and margin are invalidated too. Do it after the server confirms the change, not when the request is sent.
