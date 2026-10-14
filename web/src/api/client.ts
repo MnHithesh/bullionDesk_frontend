@@ -31,8 +31,8 @@ let refreshInFlight: Promise<string | null> | null = null
 
 /**
  * Gets a new access token using the stored refresh token.
- * Resolves to the new token, or null if the backend rejected the refresh (session over).
- * Rejects on network errors, which don't end the session.
+ * Resolves to the new token, or null if the backend rejected the refresh token (session over).
+ * Rejects on network errors, rate limiting (429) and server errors, which don't end the session.
  */
 export function refreshAccessToken(): Promise<string | null> {
   refreshInFlight ??= doRefresh().finally(() => {
@@ -45,15 +45,20 @@ async function doRefresh(): Promise<string | null> {
   const refreshToken = tokens.getRefreshToken()
   if (!refreshToken) return null
 
-  const { data, response } = await refreshClient.POST('/api/auth/refresh', {
+  const { data, error, response } = await refreshClient.POST('/api/auth/refresh', {
     body: { refreshToken },
   })
   if (response.ok && data) {
     tokens.set(data)
     return data.accessToken
   }
-  tokens.clear()
-  return null
+  // Only a rejected token ends the session. A 429 (the gateway rate-limits auth calls) or a 5xx
+  // says nothing about the token: keep it and fail this request, so a retry can succeed.
+  if (response.status === 400 || response.status === 401 || response.status === 403) {
+    tokens.clear()
+    return null
+  }
+  throw toApiError(response, error)
 }
 
 function withAuth(request: Request, token: string | null): Request {

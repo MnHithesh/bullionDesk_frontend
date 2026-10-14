@@ -81,6 +81,21 @@ describe('authFetch', () => {
     unsubscribe()
   })
 
+  it.each([429, 503])('keeps the session when the refresh fails with %d', async (status) => {
+    mockSession()
+    server.use(
+      http.post('/api/auth/refresh', () =>
+        HttpResponse.json({ title: 'Too Many Requests', status }, { status }),
+      ),
+    )
+    tokens.set({ accessToken: 'expired', refreshToken: 'r1' })
+
+    const error = await getMe().catch((e: unknown) => e)
+
+    expect(error).toMatchObject({ status })
+    expect(tokens.getRefreshToken()).toBe('r1')
+  })
+
   it('does not try to refresh when there is no session', async () => {
     const calls = mockSession()
 
