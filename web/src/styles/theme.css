@@ -52,6 +52,28 @@
   --color-down: var(--down);
   --color-warning: var(--warning);
 
+  /* Price cell flash: a short tint that fades out. Used as motion-safe:animate-flash-up/down. */
+  --animate-flash-up: flash-up 700ms ease-out;
+  --animate-flash-down: flash-down 700ms ease-out;
+
+  @keyframes flash-up {
+    from {
+      background-color: color-mix(in oklab, var(--up) 28%, transparent);
+    }
+    to {
+      background-color: transparent;
+    }
+  }
+
+  @keyframes flash-down {
+    from {
+      background-color: color-mix(in oklab, var(--down) 28%, transparent);
+    }
+    to {
+      background-color: transparent;
+    }
+  }
+
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, monospace;
 }
