@@ -338,3 +338,66 @@ TanStack Query marks cached data stale and refetches whatever is on screen:
 
 3. **What does `invalidateQueries` do, and how do you decide what to invalidate?**
    It marks matching cached queries stale and refetches those currently in use. The key acts as a prefix, so `['orders']` covers every order list and detail. Invalidate whatever the server-side change affects. A cancelled order frees margin, so wallet and margin are invalidated too. Do it after the server confirms the change, not when the request is sent.
+
+---
+
+## Step 5 — Positions, P&L and trades
+
+### What was built
+
+| Area                                                                                                 | Files                                                                                                          |
+| ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Portfolio API: positions, position detail, trades, trade charges, P&L summary, daily P&L, square-off | `src/features/portfolio/api.ts`, `src/api/client.ts` (`portfolioApi`)                                          |
+| Positions page (2 s poll), close one / close all with confirmation, detail drawer                    | `src/features/portfolio/{PositionsPage,PositionDrawer}.tsx`                                                    |
+| Trades page with filters and paging; contract-note dialog                                            | `src/features/portfolio/{TradesPage,ContractNote}.tsx`                                                         |
+| P&L page: summary cards and daily bar chart                                                          | `src/features/portfolio/{PnlPage,DailyPnlChart,PnlAmount}.tsx`, `loss-hatch` utility in `src/styles/theme.css` |
+| Shared: compound drawer, filter fields, pagination, IST day helpers                                  | `src/components/{Drawer,FilterFields,Pagination}.tsx`, `src/lib/istDays.ts` (`istToday`, `addDays`)            |
+| Navigation                                                                                           | `/trades` and `/pnl` routes and nav items                                                                      |
+| Tests                                                                                                | `src/features/portfolio/{PnlAmount,PositionsPage,PnlPage}.test.tsx`, `src/lib/istDays.test.ts`                 |
+
+### Concepts, compared with Angular
+
+**Derived state vs stored state.**
+Store the minimum, and compute everything else during render.
+
+- _Stored:_ what only the user or the server can tell us. Examples are the positions (server state, in the query cache), the selected position (`?position=` in the URL), which closes the user asked for (`closeRequested`), and which trade's contract note is open.
+- _Derived:_ everything computable from those. "Is this row closing?" is `closeRequested ∩ open positions`, recomputed on every render. When the 2 s poll stops returning a symbol, the row is gone and so is its "Closing…" state, with no cleanup code. Storing an `isClosing` flag would need an effect to clear it, and the two could disagree for a frame or forever.
+- The page title count, "Close all N positions", the chart's 30 day slots and the bar heights are all derived.
+- In Angular you'd reach for a `computed()` signal or a `combineLatest` stream for the same thing. In React a plain `const` in the component body _is_ the computed value, because the function runs again on every change.
+- **Money stays stored, server-side.** The header's "Total unrealised" comes from `GET /api/pnl`, not from summing the rows. Summing in the browser would be money maths in the UI (against the project rules), and it could disagree with the backend's rounding.
+
+**`useMemo` vs pure pipes.**
+An Angular pure pipe (`{{ days | fillCalendar:from:to }}`) runs again only when its inputs change by reference. `useMemo(fn, deps)` is the same idea in code: `DailyPnlChart` builds 30 calendar slots from the API days and caches them until `days`, `from` or `to` change. Hovering bars re-renders the component without rebuilding the slots.
+Differences to know:
+
+- `useMemo` is an optimisation, not a guarantee: React may drop the cache, and the result must be the same either way, exactly like a pure pipe must be pure.
+- Most derivations don't need it. Filtering 20 rows is cheaper than the bookkeeping, so `PositionsPage` computes its sets inline. Use `useMemo` for real work, or to keep an object's _identity_ stable for a dependency array (like the zod schema in step 4).
+- A pipe is reusable in any template. The React equivalent of that reuse is just a function (`addDays`, `formatSignedINR`) or a custom hook.
+
+**Compound components.**
+`<Drawer>`, `<Drawer.Header>` and `<Drawer.Body>` are separate components that work as one. The parent owns the behaviour (native `<dialog>`, `showModal`, Escape, backdrop click) and shares what the parts need (`onClose`, the title id for `aria-labelledby`) through a private context.
+
+- Callers arrange the parts freely, with no `showCloseButton`, `title` or `footer` props piling up on one component.
+- Angular gets similar results with content projection (`<ng-content select="drawer-header">`), plus a parent component injected into children (`inject(DrawerComponent)`). The context plays the role of that injection.
+- Using `Drawer.Header` outside a `Drawer` throws a clear error, the same guard `useAuth()` uses.
+- The parts are attached as static properties (`Drawer.Header = DrawerHeader`), which keeps React Fast Refresh happy (`Object.assign(...)` exports trip the lint rule).
+
+### Design decisions
+
+- **Square-off is server-confirmed.** The dialog says what will happen (sell/buy N lots at market). After `POST /api/orders/square-off` the row shows "Closing…" until the 2 s poll no longer returns it. A failure (such as 404 "No open position") stays in the dialog. On success, positions, P&L, trades, orders, wallet and margin are all invalidated.
+- **Daily P&L takes IST days.** `GET /api/pnl/daily` binds `From`/`To` as `DateOnly` (inclusive IST trading days), while `/api/trades` and `/api/orders` take instants. The first version sent instants and the real backend answered 400. MSW mocks accept anything, so only the browser check against the running backend caught it. A test now pins the date format.
+- **Chart encoding:** one zero baseline; profit bars rise in green and loss bars fall in red with a diagonal hatch. The red/green pair alone fails colour-blind separation in dark mode (checked with the dataviz palette validator), so position, the sign in every label, the hatch, and a "Show as table" view carry the meaning. Every day has a focusable slot with a tooltip, and empty days are kept so the time axis is honest. The tooltip opens towards the middle so it never spills off the card.
+- **Contract note:** a table with turnover, each charge and a ruled total, in the backend's own figures. No rates are shown or computed in the UI (rates live only in `charges.json` on the backend).
+- **Position detail as a drawer** with the symbol in the URL (`?position=`), so a reload or a shared link reopens it.
+- **Tables on phones:** the screen-reader-only labels (`sr-only`, which is `position: absolute`) were escaping each table's scroll box and widening the whole page at 360 px. `relative` on the wrapper keeps them inside. This also fixed the Orders page from step 4.
+
+### Interview questions
+
+1. **What's the difference between derived and stored state, and why does it matter?**
+   Stored state is the source of truth (user input, server data, URL). Derived state is computed from it on each render. Storing something derivable creates two sources of truth that can drift and need effects to sync. Derive it instead, and memoise only if the computation is expensive.
+
+2. **When should you use `useMemo`, and how is it like an Angular pure pipe?**
+   Both recompute only when their inputs change by reference, and both must be pure. Use `useMemo` for expensive computations, or to keep an object or array identity stable for a dependency list or a memoised child. Don't wrap cheap expressions; the bookkeeping costs more than it saves.
+
+3. **What is a compound component, and how do the parts communicate?**
+   A set of components designed to be used together (`<Drawer>`, `<Drawer.Header>`, `<Drawer.Body>`), like `<select>`/`<option>`. The parent holds the state and behaviour and passes it to the parts through a context that isn't exported. Callers get a flexible layout without a large props API. It's the counterpart of Angular content projection plus injecting the parent component.
