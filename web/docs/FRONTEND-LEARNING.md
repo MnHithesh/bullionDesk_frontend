@@ -401,3 +401,57 @@ Differences to know:
 
 3. **What is a compound component, and how do the parts communicate?**
    A set of components designed to be used together (`<Drawer>`, `<Drawer.Header>`, `<Drawer.Body>`), like `<select>`/`<option>`. The parent holds the state and behaviour and passes it to the parts through a context that isn't exported. Callers get a flexible layout without a large props API. It's the counterpart of Angular content projection plus injecting the parent component.
+
+---
+
+## Step 6 — Wallet and risk
+
+### What was built
+
+| Area                                                                                                                 | Files                                                                                                      |
+| -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Wallet page: balance cards, ledger (type/date filters, paging, icon + signed amount), reset with the 422 explanation | `src/features/wallet/{WalletPage,LedgerIcon}.tsx`, `api.ts` (`useLedger`, `useResetWallet`)                |
+| Risk page: 2 s margin poll, gauge, status, figures, per-position maintenance and P&L, margin-call history            | `src/features/risk/{RiskPage,MarginGauge,RiskStatusBadge}.tsx`, `api.ts` (full `Margin`, `useMarginCalls`) |
+| Gauge thresholds and status wording                                                                                  | `src/features/risk/gauge.ts`                                                                               |
+| App-wide banner for MarginCall / SquareOff                                                                           | `src/features/risk/MarginBanner.tsx`, placed in `src/app/AppShell.tsx`                                     |
+| Routes                                                                                                               | `/wallet` and `/risk` are real pages now; the "coming soon" placeholder is gone                            |
+| Tests                                                                                                                | `src/features/risk/{gauge.test.ts,MarginBanner.test.tsx}`, `src/features/wallet/WalletPage.test.tsx`       |
+
+### Concepts, compared with Angular
+
+**Global UI state vs server state.**
+In Angular, app-wide state usually lives in a root service (`BehaviorSubject` or signals), or in NgRx when it grows. React's usual answers are context, or a small store such as Zustand (`create(set => ({ ... }))`, read with a hook and a selector).
+Ask first _whose_ state it is:
+
+- **Server state** is a copy of data the backend owns: margin status, wallet, positions. It goes stale, needs refetching, can fail, and is shared by many components. TanStack Query is the store for it. The margin banner needs no context or Zustand: `MarginBanner`, the top-bar pill and the Risk page all call `useMargin()` with the same key, so they read one cache entry and always agree. Putting a copy in a global store would create a second source of truth to keep in sync.
+- **Polling is shared too.** The shell polls margin every 5 s. The Risk page asks for the same key every 2 s, and TanStack polls at the _shortest_ interval any mounted observer requests. While the Risk page is open the banner and pill update every 2 s as well, and they drop back to 5 s when it closes.
+- **Client (UI) state** exists only in the browser: theme, whether a drawer is open, a dismissed banner, a draft form. Most of it is local (`useState`). Truly global UI state that many distant components change is where context or Zustand earns its place: context for values that rarely change (theme, the signed-in user), Zustand for frequently changing ones, because context re-renders every consumer on each change while Zustand re-renders only components whose selected slice changed.
+- So far the app has two global things, and both fit this split: auth (context, rarely changes) and the theme (a `data-theme` attribute plus `localStorage`). Neither needed a store library.
+
+**Accessibility of status colours.**
+Green, amber and red are a common colour-blindness confusion set, and colour means nothing to a screen reader. Every status here is carried by words first:
+
+- **Text label + icon + colour:** "✓ Normal", "! Margin call", "✕ Square-off". The pill says "Margin OK". Ledger entries show their type name and a CASH/MARGIN tag, not just a coloured amount.
+- **Signs on numbers:** amounts are `+₹5,730.00` / `-₹517.81`, so direction survives without colour. Margin block/release amounts are _not_ coloured as profit or loss, because they aren't.
+- **The gauge** is `role="meter"` with an `aria-valuetext` reading out equity, maintenance and square-off level. Its markers are labelled in text below the bar, and the square-off band is hatched as well as tinted.
+- **The banner** is `role="alert"`, so it's announced when it appears. It explains what happened and what to do, and links to the Risk page. The Risk page's status badge sits in an `aria-live="polite"` region, so a change from Normal to Margin call is read out.
+- **Contrast:** the tones come from the theme tokens, which were chosen for readable text on both light and dark surfaces. Tinted backgrounds (`bg-warning/15`) keep the text colour at full strength.
+
+### Design decisions
+
+- **The backend decides the status; the gauge only draws.** `gaugeLayout` puts equity in a zone by the reported levels (≥ maintenance safe, below it a margin call, at or below square-off level square-off). The badge and banner use the backend's `status`, which has hysteresis: it stays in a margin call until equity recovers with some room. During that recovery the gauge can show green while the badge still says "Margin call". That's deliberate, and the words are the authority.
+- **Gauge scale** runs to the larger of equity and maintenance plus 25% headroom, so neither marker sits on the edge. Negative equity pins to the left edge. With no positions there is no requirement, so the gauge is replaced by a sentence.
+- **Reset:** the dialog warns up front when margin is blocked, and a 422 shows the backend's reason, why it's refused, and links to Positions and open orders. A successful reset invalidates wallet (including the ledger), margin and P&L.
+- **Banner placement:** below the sticky header rather than inside it, so the side nav's sticky offset still matches the header height. It shows on every page and drops its "View risk" link on the Risk page itself.
+- **Icons are SVG, not emoji:** emoji depend on the system's fonts (the headless browser showed empty boxes for 🔒).
+
+### Interview questions
+
+1. **When would you use context or Zustand instead of TanStack Query, and vice versa?**
+   TanStack Query is for server state: anything the backend owns, which needs caching, refetching and error handling. Context or Zustand is for client state that many components share. Use context for rarely changing values (theme, current user), and Zustand when updates are frequent and you want selector-based re-renders. Don't copy server data into a client store; you'd have to keep two sources of truth in sync.
+
+2. **Two components poll the same query at different intervals. What happens?**
+   They share one cache entry, keyed by the query key, and TanStack Query refetches at the shortest interval among the mounted observers. When the faster component unmounts, the polling slows back down. Every reader sees the same data at the same time.
+
+3. **How do you make a red/amber/green status accessible?**
+   Never rely on colour alone. Add a text label and an icon, use signs on numbers, and use patterns or position in charts. Expose the value to assistive tech (`role="meter"` with `aria-valuetext`, `role="alert"` for urgent banners, `aria-live` for changing statuses). Check text contrast in both themes, and test with a colour-blindness simulator.
