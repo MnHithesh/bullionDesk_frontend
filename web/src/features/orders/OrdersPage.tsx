@@ -1,5 +1,7 @@
 import { useSearchParams } from 'react-router'
 import { Button } from '@/components/Button'
+import { DateField, SelectField } from '@/components/FilterFields'
+import { Pagination } from '@/components/Pagination'
 import { EmptyState, ErrorState } from '@/components/QueryStates'
 import { Skeleton } from '@/components/Skeleton'
 import { useInstruments } from '@/features/markets/api'
@@ -57,14 +59,14 @@ export function OrdersPage() {
         onSubmit={(e) => e.preventDefault()}
         className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-surface p-3 sm:grid-cols-4 lg:flex lg:items-end"
       >
-        <Select
+        <SelectField
           label="Status"
           value={status ?? ''}
           onChange={(v) => setFilter('status', v)}
           options={orderStatuses.map((s) => ({ value: s, label: s }))}
           allLabel="All statuses"
         />
-        <Select
+        <SelectField
           label="Contract"
           value={symbol ?? ''}
           onChange={(v) => setFilter('symbol', v)}
@@ -108,7 +110,7 @@ export function OrdersPage() {
       ) : (
         <>
           <div
-            className={`overflow-x-auto rounded-lg border border-border bg-surface transition-opacity ${orders.isPlaceholderData ? 'opacity-60' : ''}`}
+            className={`relative overflow-x-auto rounded-lg border border-border bg-surface transition-opacity ${orders.isPlaceholderData ? 'opacity-60' : ''}`}
             aria-busy={orders.isPlaceholderData || undefined}
           >
             <table className="w-full text-sm">
@@ -148,84 +150,15 @@ export function OrdersPage() {
               </tbody>
             </table>
           </div>
-          <nav aria-label="Pagination" className="flex items-center justify-between gap-3 text-sm">
-            <span className="text-muted">
-              Page {data!.page} of {Math.max(1, data!.totalPages)} · {data!.totalCount}{' '}
-              {data!.totalCount === 1 ? 'order' : 'orders'}
-            </span>
-            <div className="flex gap-2">
-              <Button
-                variant="secondary"
-                disabled={page <= 1}
-                onClick={() => setFilter('page', String(page - 1))}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="secondary"
-                disabled={page >= data!.totalPages}
-                onClick={() => setFilter('page', String(page + 1))}
-              >
-                Next
-              </Button>
-            </div>
-          </nav>
+          <Pagination
+            page={data!.page}
+            totalPages={data!.totalPages}
+            totalCount={data!.totalCount}
+            noun={['order', 'orders']}
+            onPage={(p) => setFilter('page', String(p))}
+          />
         </>
       )}
     </div>
-  )
-}
-
-function Select({
-  label,
-  value,
-  onChange,
-  options,
-  allLabel,
-}: {
-  label: string
-  value: string
-  onChange: (value: string) => void
-  options: { value: string; label: string }[]
-  allLabel: string
-}) {
-  return (
-    <label className="block text-sm">
-      <span className="font-medium">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-1 block w-full rounded-md border border-border bg-surface px-2 py-2 text-text"
-      >
-        <option value="">{allLabel}</option>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  )
-}
-
-function DateField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string
-  value: string
-  onChange: (value: string) => void
-}) {
-  return (
-    <label className="block text-sm">
-      <span className="font-medium">{label}</span>
-      <input
-        type="date"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-1 block w-full rounded-md border border-border bg-surface px-2 py-1.5 text-text"
-      />
-    </label>
   )
 }

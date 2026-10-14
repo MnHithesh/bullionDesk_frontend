@@ -91,7 +91,7 @@ function MarketTable({
   quotes: Map<string, Quote>
 }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-surface">
+    <div className="relative overflow-x-auto rounded-lg border border-border bg-surface">
       <table className="w-full text-xs sm:text-sm">
         <TableHead />
         {groupByUnderlying(instruments).map(([underlying, list]) => (
