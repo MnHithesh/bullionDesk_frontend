@@ -69,7 +69,7 @@ describe('register page', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
-  it('registers, signs in and lands on the home page', async () => {
+  it('registers, signs in and lands on the markets page', async () => {
     mockMe()
     let registerBody: unknown
     server.use(
@@ -89,7 +89,7 @@ describe('register page', () => {
     await userEvent.type(screen.getByLabelText('Confirm password'), 'Gold#2026')
     await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
 
-    expect(await screen.findByRole('button', { name: 'Log out' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Markets' })).toBeInTheDocument()
     expect(tokens.getRefreshToken()).toBe('refresh-1')
     expect(registerBody).toEqual({
       displayName: 'Asha',
@@ -137,7 +137,7 @@ describe('protected routes', () => {
     localStorage.setItem('bulliondesk.refreshToken', 'refresh-1')
     renderApp('/')
 
-    expect(await screen.findByText('Asha')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Account menu for Asha' })).toBeInTheDocument()
   })
 
   it('logs out back to the login page', async () => {
@@ -146,7 +146,8 @@ describe('protected routes', () => {
     tokens.set({ accessToken: 'access-1', refreshToken: 'refresh-1' })
     const { router } = renderApp('/')
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Log out' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Account menu for Asha' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Log out' }))
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
     expect(tokens.hasSession()).toBe(false)
