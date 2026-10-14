@@ -58,3 +58,56 @@ export const expiries = instruments.map((i) => ({
   expiryDate: i.expiryDate,
   expiry: i.expiry,
 }))
+
+export function orderJson(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'o-1',
+    symbol: 'SILVER26NOVFUT',
+    underlying: 'SILVER',
+    side: 'Buy',
+    type: 'Limit',
+    lots: 1,
+    limitPrice: 120000,
+    referencePrice: 120000,
+    marginLots: 1,
+    requiredMargin: 360000,
+    status: 'Open',
+    statusReason: null as string | null,
+    origin: 'User',
+    createdAt: '2026-10-14T10:00:00+00:00',
+    updatedAt: '2026-10-14T10:00:01+00:00',
+    ...overrides,
+  }
+}
+
+export function orderDetailJson(
+  order: ReturnType<typeof orderJson>,
+  history: { status: string; note: string | null; at: string }[] = [
+    { status: 'Pending', note: 'Placed', at: '2026-10-14T10:00:00+00:00' },
+  ],
+) {
+  return { order, history, fills: [] }
+}
+
+export const previewJson = {
+  symbol: 'GOLD26DECFUT',
+  side: 'Buy',
+  lots: 2,
+  referencePrice: 136142,
+  currentPosition: 0,
+  openingLots: 2,
+  closingLots: 0,
+  requiredMargin: 2178272,
+  turnover: 27228400,
+  estimatedCharges: {
+    turnover: 27228400,
+    brokerage: 20,
+    exchangeFee: 571.8,
+    sebiFee: 27.23,
+    commodityTransactionTax: 0,
+    stampDuty: 544.57,
+    gst: 111.43,
+    total: 1275.03,
+  },
+  estimatedChargesTotal: 1275.03,
+}

@@ -3,6 +3,7 @@ import { LoginPage } from '@/features/auth/LoginPage'
 import { RegisterPage } from '@/features/auth/RegisterPage'
 import { PublicOnly, RequireAuth } from '@/features/auth/RouteGuards'
 import { MarketsPage } from '@/features/markets/MarketsPage'
+import { OrdersPage } from '@/features/orders/OrdersPage'
 import { AppShell } from './AppShell'
 import { ComingSoonPage } from './ComingSoonPage'
 
@@ -30,7 +31,7 @@ export const routes: RouteObject[] = [
                 Component: m.InstrumentDetailPage,
               })),
           },
-          { path: '/orders', element: <ComingSoonPage title="Orders" /> },
+          { path: '/orders', element: <OrdersPage /> },
           { path: '/positions', element: <ComingSoonPage title="Positions" /> },
           { path: '/wallet', element: <ComingSoonPage title="Wallet" /> },
           { path: '/risk', element: <ComingSoonPage title="Risk" /> },

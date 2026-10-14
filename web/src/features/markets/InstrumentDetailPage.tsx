@@ -19,6 +19,7 @@ import {
   type CandleInterval,
   type Instrument,
 } from './api'
+import { OrderTicket } from '@/features/orders/OrderTicket'
 import { CandleChart } from './CandleChart'
 import { FlashPrice } from './FlashPrice'
 import { PriceChange } from './PriceChange'
@@ -98,89 +99,96 @@ function InstrumentDetail({ instrument }: { instrument: Instrument }) {
         </div>
       </header>
 
-      <section
-        aria-labelledby="chart-heading"
-        className="rounded-lg border border-border bg-surface"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2">
-          <h2 id="chart-heading" className="text-sm font-medium">
-            Price chart
-          </h2>
-          <div role="group" aria-label="Candle interval" className="flex gap-1">
-            {candleIntervals.map((value) => (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={interval === value}
-                onClick={() => setCandleInterval(value)}
-                className={`rounded px-2.5 py-1 text-xs font-medium ${
-                  interval === value
-                    ? 'bg-accent text-accent-contrast'
-                    : 'text-muted hover:text-text'
-                }`}
-              >
-                {value}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="relative p-2">
-          {candles.isError ? (
-            <div className="p-2">
-              <ErrorState
-                title="Could not load the chart"
-                error={candles.error}
-                onRetry={() => void candles.refetch()}
-              />
-            </div>
-          ) : (
-            <>
-              <CandleChart
-                candles={candles.data ?? NO_CANDLES}
-                quote={last}
-                interval={interval}
-                label={`${intervalLabel[interval]} candlestick chart for ${instrument.symbol}`}
-              />
-              {candles.isPending && (
-                <div
-                  role="status"
-                  className="absolute inset-2 flex items-center justify-center bg-surface/70"
+      {/* Chart, then ticket, then spec on phones; ticket in a right-hand column on wide screens. */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+        <section
+          aria-labelledby="chart-heading"
+          className="min-w-0 rounded-lg border border-border bg-surface"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2">
+            <h2 id="chart-heading" className="text-sm font-medium">
+              Price chart
+            </h2>
+            <div role="group" aria-label="Candle interval" className="flex gap-1">
+              {candleIntervals.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={interval === value}
+                  onClick={() => setCandleInterval(value)}
+                  className={`rounded px-2.5 py-1 text-xs font-medium ${
+                    interval === value
+                      ? 'bg-accent text-accent-contrast'
+                      : 'text-muted hover:text-text'
+                  }`}
                 >
-                  <span className="text-sm text-muted">Loading candles…</span>
-                </div>
-              )}
-              {candles.isSuccess && candles.data.length === 0 && (
-                <p className="absolute inset-x-0 top-1/3 text-center text-sm text-muted">
-                  No trades yet for this interval.
-                </p>
-              )}
-            </>
-          )}
-        </div>
-      </section>
+                  {value}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="relative p-2">
+            {candles.isError ? (
+              <div className="p-2">
+                <ErrorState
+                  title="Could not load the chart"
+                  error={candles.error}
+                  onRetry={() => void candles.refetch()}
+                />
+              </div>
+            ) : (
+              <>
+                <CandleChart
+                  candles={candles.data ?? NO_CANDLES}
+                  quote={last}
+                  interval={interval}
+                  label={`${intervalLabel[interval]} candlestick chart for ${instrument.symbol}`}
+                />
+                {candles.isPending && (
+                  <div
+                    role="status"
+                    className="absolute inset-2 flex items-center justify-center bg-surface/70"
+                  >
+                    <span className="text-sm text-muted">Loading candles…</span>
+                  </div>
+                )}
+                {candles.isSuccess && candles.data.length === 0 && (
+                  <p className="absolute inset-x-0 top-1/3 text-center text-sm text-muted">
+                    No trades yet for this interval.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </section>
 
-      <section
-        aria-labelledby="spec-heading"
-        className="rounded-lg border border-border bg-surface"
-      >
-        <h2 id="spec-heading" className="border-b border-border px-4 py-2 text-sm font-medium">
-          Contract specification
-        </h2>
-        <dl className="grid grid-cols-1 gap-x-6 gap-y-3 px-4 py-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
-          <Spec
-            label="Lot size"
-            value={`${formatNumber(instrument.lotSize, 0)} ${instrument.lotUnit}`}
-          />
-          <Spec label="Multiplier" value={formatNumber(instrument.multiplier, 0)} />
-          <Spec label="Tick size" value={formatINR(instrument.tickSize)} />
-          <Spec label="Initial margin" value={formatPercent(instrument.initialMarginPercent)} />
-          <Spec
-            label="Maintenance margin"
-            value={formatPercent(instrument.maintenanceMarginPercent)}
-          />
-          <Spec label="Expiry" value={formatDateTimeIST(instrument.expiry)} />
-        </dl>
-      </section>
+        <div className="lg:sticky lg:top-20 lg:col-start-2 lg:row-span-2 lg:row-start-1">
+          <OrderTicket instrument={instrument} lastPrice={last?.lastPrice ?? null} />
+        </div>
+
+        <section
+          aria-labelledby="spec-heading"
+          className="rounded-lg border border-border bg-surface"
+        >
+          <h2 id="spec-heading" className="border-b border-border px-4 py-2 text-sm font-medium">
+            Contract specification
+          </h2>
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-3 px-4 py-4 text-sm sm:grid-cols-2 xl:grid-cols-3">
+            <Spec
+              label="Lot size"
+              value={`${formatNumber(instrument.lotSize, 0)} ${instrument.lotUnit}`}
+            />
+            <Spec label="Multiplier" value={formatNumber(instrument.multiplier, 0)} />
+            <Spec label="Tick size" value={formatINR(instrument.tickSize)} />
+            <Spec label="Initial margin" value={formatPercent(instrument.initialMarginPercent)} />
+            <Spec
+              label="Maintenance margin"
+              value={formatPercent(instrument.maintenanceMarginPercent)}
+            />
+            <Spec label="Expiry" value={formatDateTimeIST(instrument.expiry)} />
+          </dl>
+        </section>
+      </div>
     </>
   )
 }
