@@ -25,5 +25,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     css: false,
+    // Generous limits: typing with user-event is slow on CI runners and WSL-mounted Windows drives.
+    testTimeout: 20_000,
   },
 })
